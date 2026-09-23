@@ -20,6 +20,7 @@
 ## 核心功能
 
 - Exa API 代理：`/search`、`/answer`、`/contents`、`/findSimilar`、`/research/v1`
+- MCP 工具入口：`/mcp`（HTTP）
 - 多账号轮询与失败切换
 - 管理面板（账号、用户、策略、日志、监控、系统设置）
 - 用户系统（会话登录、用户 API Key、角色/限流）
@@ -63,6 +64,44 @@ curl http://localhost:7860/search \
   -H "Content-Type: application/json" \
   -d '{"query":"latest linux do news","numResults":3}'
 ```
+
+---
+
+## MCP 工具（HTTP）
+
+项目内置 MCP 服务，入口为：`/mcp`。  
+可通过 MCP 客户端调用工具（search、contents、findSimilar、answer、research）。
+
+**鉴权**
+
+- MCP 通过请求头 `Authorization: Bearer <user_api_key>` 进行鉴权。
+- 未提供有效的 Bearer Token 时，MCP 请求将直接返回错误提示。
+
+**Codex 配置示例（推荐）**
+
+> 注意：Codex 的 MCP URL 必须使用带斜杠的 `.../mcp/`，否则可能因重定向丢失鉴权头。
+
+```toml
+# ~/.codex/config.toml 或 项目目录下 .codex/config.toml
+[mcp_servers.exafree]
+url = "http://localhost:7860/mcp/"
+
+# 方式 A：直接写死 Header（不需要环境变量）
+http_headers = { "Authorization" = "Bearer your-user-api-key" }
+
+# 方式 B：通过环境变量注入（更安全）
+# bearer_token_env_var = "EXAFREE_USER_KEY"
+```
+
+改完配置后需要重启 Codex 才会生效。
+
+### 2. 配置（以 Claude Code 为例）
+
+```bash
+claude mcp add --transport http exa-pool http://localhost:7860/mcp
+```
+
+重启 Claude Code 以应用 MCP 的配置变更。
 
 ---
 
@@ -184,7 +223,7 @@ curl http://localhost:7860/search \
 ## 本地开发（非 Docker）
 
 ```bash
-git clone https://github.com/Dreamy-rain/exafree.git
+git clone https://github.com/chengtx809/exafree.git
 cd exafree
 
 # 前端

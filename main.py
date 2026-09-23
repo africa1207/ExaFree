@@ -590,7 +590,19 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(save_cooldown_states_task())
         logger.info("[SYSTEM] 冷却状态定期保存任务已启动（间隔: 5分钟）")
 
-    yield
+    mcp_session_manager = None
+    try:
+        from core.mcp_server import get_mcp_session_manager
+
+        mcp_session_manager = get_mcp_session_manager()
+    except Exception as e:
+        logger.warning("[SYSTEM] MCP session manager unavailable: %s", e)
+
+    if mcp_session_manager:
+        async with mcp_session_manager.run():
+            yield
+    else:
+        yield
 
     # Shutdown
     if storage.is_database_enabled():
@@ -626,6 +638,17 @@ if os.path.exists(os.path.join("static", "assets")):
     app.mount("/assets", StaticFiles(directory=os.path.join("static", "assets")), name="assets")
 if os.path.exists(os.path.join("static", "vendor")):
     app.mount("/vendor", StaticFiles(directory=os.path.join("static", "vendor")), name="vendor")
+try:
+    from core.mcp_server import get_mcp_http_app
+
+    app.mount("/mcp", get_mcp_http_app(), name="mcp")
+    logger.info("[SYSTEM] MCP endpoint mounted at /mcp")
+except Exception as e:
+    logger.warning("[SYSTEM] MCP endpoint disabled: %s", e)
+
+@app.api_route("/mcp", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+async def mcp_redirect():
+    return RedirectResponse(url="/mcp/", status_code=307)
 
 @app.get("/")
 async def serve_frontend_index():
